@@ -1,0 +1,84 @@
+'' Research Websites:
+' https://www.datanumen.com/blogs/batch-move-emails-outlook-pst-file-specific-folder-via-vba/
+' https://www.datanumen.com/blogs/auto-save-specific-email-attachments-outlook-vba/
+' http://www.vbaexpress.com/forum/showthread.php?30550-Solved-Simple-move-email-to-different-folder
+' https://stackoverflow.com/questions/15531093/save-attachments-to-a-folder-and-rename-them
+' https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/option-explicit-statement
+' https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/object-required-error-424
+
+'' Instructions
+' Put macro in ThisOutlookSession in VBA editor
+' Macro will not be active until Outlook is closed and restarted
+
+Private WithEvents Items As Outlook.Items
+
+Private Sub Application_Startup()
+
+    Dim olApp As Outlook.Application
+    Dim objNS As Outlook.NameSpace
+    
+    Set olApp = Outlook.Application
+    Set objNS = olApp.GetNamespace("MAPI")
+    
+    Set Items = objNS.GetDefaultFolder(olFolderInbox).Items
+    
+End Sub
+
+Private Sub Items_ItemAdd(ByVal item As Object)
+
+    On Error GoTo ErrorHandler
+    
+    Dim Msg As Outlook.MailItem
+    Dim uc_rpt_Folder As Outlook.Folder
+    Dim timekeeping_Folder As Outlook.Folder
+    Dim Atts As Attachments
+    Dim Att As Attachment
+
+    If TypeName(item) = "MailItem" Then
+        
+        Set Msg = item
+        Set Atts = item.Attachments
+        Set uc_rpt_Folder = Outlook.Application.Session.Folders("uc_rpt_email")
+        Set timekeeping_Folder = Outlook.Application.Session.Folders("timekeeping")
+
+        If Msg.SenderEmailAddress = "no_reply@corp.ds.fedex.com" And Atts.Count > 0 Then
+
+            For Each Att In Atts
+                If InStr(LCase(Att.FileName), "optredprairie") > 0 Then
+                   strPath = "my_username_path\Desktop\raw_reports\"
+                   strName = Att.FileName
+                   Att.SaveAsFile strPath & strName
+                   Msg.Move uc_rpt_Folder
+                End If
+            Next
+            
+        ElseIf Msg.SenderEmailAddress = "KronosPROD80@kronos.com" And Atts.Count > 0 Then
+        
+            For Each Att In Atts
+                If InStr(LCase(Msg.Subject), "person") > 0 Then
+                   strPath = "my_username_path\Desktop\raw_reports\"
+                   strDate = Format(Msg.SentOn, "yymmdd")
+                   strName = "Person_List_" & strDate & ".xls"
+                   Att.SaveAsFile strPath & strName
+                   Msg.Move timekeeping_Folder
+                ElseIf InStr(LCase(Msg.Subject), "punch") > 0 Then
+                   strPath = "my_username_path\Desktop\raw_reports\"
+                   strDate = Format(Msg.SentOn, "yyyy-mm-dd")
+                   strName = "punch_summary_rolling3day_" & strDate & ".xls"
+                   Att.SaveAsFile strPath & strName
+                   Msg.Move timekeeping_Folder
+                End If
+            Next
+
+        End If
+    End If
+    
+ProgramExit:
+    Exit Sub
+
+ErrorHandler:
+    MsgBox Err.Number & " - " & Err.Description
+    Resume ProgramExit
+    
+End Sub
+
